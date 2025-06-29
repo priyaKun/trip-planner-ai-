@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 
 function ItineraryForm() {
@@ -10,6 +10,9 @@ function ItineraryForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [activeStep, setActiveStep] = useState(1);
+  const [darkMode, setDarkMode] = useState(() => window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+  const [shareMsg, setShareMsg] = useState('');
+  const itineraryRef = useRef(null);
 
   const isStep1Valid = destination.trim().length > 0;
   const isStep2Valid = days > 0 && theme.trim().length > 0;
@@ -40,84 +43,238 @@ function ItineraryForm() {
   const nextStep = () => setActiveStep(prev => Math.min(prev + 1, 3));
   const prevStep = () => setActiveStep(prev => Math.max(prev - 1, 1));
 
+  // Share handler
+  const handleShare = async () => {
+    const shareText = `Check out my ${days}-Day ${destination} Itinerary!\nTheme: ${theme} • Pace: ${pace}\n\n${itinerary}`;
+    try {
+      await navigator.clipboard.writeText(shareText);
+      setShareMsg('Copied to clipboard!');
+      setTimeout(() => setShareMsg(''), 2000);
+    } catch {
+      setShareMsg('Failed to copy');
+      setTimeout(() => setShareMsg(''), 2000);
+    }
+  };
+
+  // Print/Save as PDF handler
+  const handlePrintPDF = () => {
+    if (!itineraryRef.current) return;
+    const printContents = itineraryRef.current.innerHTML;
+    const win = window.open('', '', 'height=700,width=900');
+    win.document.write('<html><head><title>Itinerary PDF</title>');
+    win.document.write('<style>body{font-family:Inter,sans-serif;padding:2rem;} h2{margin-top:0;} .day-header{font-weight:bold;margin-top:1.5rem;} .activity{margin-left:2rem;} .subtitle{color:#555;} .results-title{color:#212529;} .results-subtitle{color:#6c757d;} </style>');
+    win.document.write('</head><body>');
+    win.document.write(printContents);
+    win.document.write('</body></html>');
+    win.document.close();
+    win.focus();
+    setTimeout(() => win.print(), 500);
+  };
+
+  // Helper to get styles based on darkMode
+  const getStyles = () => {
+    if (!darkMode) return styles;
+    // Deep merge for dark mode overrides
+    return {
+      ...styles,
+      container: {
+        ...styles.container,
+        backgroundColor: '#121212',
+        color: '#f1f1f1',
+      },
+      header: {
+        ...styles.header,
+        backgroundColor: '#181818',
+        color: '#f1f1f1',
+        boxShadow: '0 2px 10px rgba(0,0,0,0.25)',
+      },
+      mainContent: {
+        ...styles.mainContent,
+        backgroundColor: '#181818',
+        color: '#f1f1f1',
+      },
+      stepperContainer: {
+        ...styles.stepperContainer,
+        backgroundColor: '#181818',
+        color: '#f1f1f1',
+      },
+      stepActive: {
+        ...styles.stepActive,
+        backgroundColor: '#3a0ca3',
+        color: '#fff',
+      },
+      stepInactive: {
+        ...styles.stepInactive,
+        backgroundColor: '#232323',
+        color: '#aaa',
+      },
+      searchInput: {
+        ...styles.searchInput,
+        backgroundColor: '#232323',
+        color: '#f1f1f1',
+        border: '1px solid #333',
+      },
+      nextButton: {
+        ...styles.nextButton,
+        backgroundColor: '#3a0ca3',
+        color: '#fff',
+      },
+      popularDestinations: {
+        ...styles.popularDestinations,
+        color: '#aaa',
+      },
+      destinationTag: {
+        ...styles.destinationTag,
+        backgroundColor: '#232323',
+        color: '#f1f1f1',
+      },
+      dayButton: {
+        ...styles.dayButton,
+        backgroundColor: '#232323',
+        color: '#f1f1f1',
+      },
+      dayButtonActive: {
+        ...styles.dayButtonActive,
+        backgroundColor: '#3a0ca3',
+        color: '#fff',
+      },
+      input: {
+        ...styles.input,
+        backgroundColor: '#232323',
+        color: '#f1f1f1',
+        border: '1px solid #333',
+      },
+      backButton: {
+        ...styles.backButton,
+        backgroundColor: '#232323',
+        color: '#f1f1f1',
+      },
+      paceCard: {
+        ...styles.paceCard,
+        backgroundColor: '#232323',
+        color: '#f1f1f1',
+        border: '1px solid #333',
+      },
+      paceCardActive: {
+        ...styles.paceCardActive,
+        backgroundColor: '#3a0ca3',
+        color: '#fff',
+      },
+      resultsContainer: {
+        ...styles.resultsContainer,
+        backgroundColor: '#181818',
+        color: '#f1f1f1',
+      },
+      dayHeader: {
+        ...styles.dayHeader,
+        borderBottom: '1px solid #333',
+      },
+      newItineraryButton: {
+        ...styles.newItineraryButton,
+        backgroundColor: 'transparent',
+        color: '#3a0ca3',
+        border: '2px solid #3a0ca3',
+      },
+      error: {
+        ...styles.error,
+        backgroundColor: '#3a0ca3',
+        color: '#fff',
+      },
+      themeToggleButton: {
+        ...styles.themeToggleButton,
+        backgroundColor: darkMode ? '#fff' : '#3a0ca3',
+        color: darkMode ? '#3a0ca3' : '#fff',
+        border: '1px solid #3a0ca3',
+      },
+    };
+  };
+  const currentStyles = getStyles();
+
+  useEffect(() => {
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    const handleChange = (e) => setDarkMode(e.matches);
+    mq.addEventListener('change', handleChange);
+    return () => mq.removeEventListener('change', handleChange);
+  }, []);
+
   return (
-    <div style={styles.container}>
+    <div style={currentStyles.container}>
       {/* Header */}
-      <div style={styles.header}>
-        <div style={styles.logo}>✈️</div>
-        <h1 style={styles.title}>JourneyCraft</h1>
-        <p style={styles.subtitle}>Your personalized travel designer</p>
+      <div style={currentStyles.header}>
+        <div style={currentStyles.logo}>✈️</div>
+        <h1 style={currentStyles.title}>JourneyCraft</h1>
+        <p style={currentStyles.subtitle}>Your personalized travel designer</p>
       </div>
 
-      <div style={styles.mainContent}>
+      <div style={currentStyles.mainContent}>
         {!itinerary ? (
-          <div style={styles.stepperContainer}>
+          <div style={currentStyles.stepperContainer}>
             {/* Stepper Header */}
-            <div style={styles.stepper}>
+            <div style={currentStyles.stepper}>
               <div 
-                style={activeStep >= 1 ? styles.stepActive : styles.stepInactive}
+                style={activeStep >= 1 ? currentStyles.stepActive : currentStyles.stepInactive}
                 onClick={() => {
                   if (isStep1Valid || activeStep === 1) setActiveStep(1);
                 }}
               >
-                <span style={styles.stepNumber}>1</span>
-                <span style={styles.stepLabel}>Destination</span>
+                <span style={currentStyles.stepNumber}>1</span>
+                <span style={currentStyles.stepLabel}>Destination</span>
               </div>
-              <div style={styles.stepConnector}></div>
+              <div style={currentStyles.stepConnector}></div>
               <div 
-                style={(activeStep >= 2 && isStep1Valid) ? styles.stepActive : styles.stepInactive}
+                style={(activeStep >= 2 && isStep1Valid) ? currentStyles.stepActive : currentStyles.stepInactive}
                 onClick={() => {
                   if (isStep1Valid) setActiveStep(2);
                 }}
               >
-                <span style={styles.stepNumber}>2</span>
-                <span style={styles.stepLabel}>Details</span>
+                <span style={currentStyles.stepNumber}>2</span>
+                <span style={currentStyles.stepLabel}>Details</span>
               </div>
-              <div style={styles.stepConnector}></div>
+              <div style={currentStyles.stepConnector}></div>
               <div 
-                style={(activeStep >= 3 && isStep1Valid && isStep2Valid) ? styles.stepActive : styles.stepInactive}
+                style={(activeStep >= 3 && isStep1Valid && isStep2Valid) ? currentStyles.stepActive : currentStyles.stepInactive}
                 onClick={() => {
                   if (isStep1Valid && isStep2Valid) setActiveStep(3);
                 }}
               >
-                <span style={styles.stepNumber}>3</span>
-                <span style={styles.stepLabel}>Preferences</span>
+                <span style={currentStyles.stepNumber}>3</span>
+                <span style={currentStyles.stepLabel}>Preferences</span>
               </div>
             </div>
 
             {/* Form */}
-            <form onSubmit={handleSubmit} style={styles.form}>
+            <form onSubmit={handleSubmit} style={currentStyles.form}>
               {/* Step 1: Destination */}
               {activeStep === 1 && (
-                <div style={styles.stepContent}>
-                  <h2 style={styles.stepTitle}>Where would you like to go?</h2>
-                  <div style={styles.searchContainer}>
+                <div style={currentStyles.stepContent}>
+                  <h2 style={currentStyles.stepTitle}>Where would you like to go?</h2>
+                  <div style={currentStyles.searchContainer}>
                     <input
                       type="text"
                       value={destination}
                       onChange={(e) => setDestination(e.target.value)}
                       required
-                      style={styles.searchInput}
+                      style={currentStyles.searchInput}
                       placeholder="Search destinations..."
                     />
                     <button 
                       type="button" 
                       onClick={() => isStep1Valid && nextStep()}
-                      style={styles.nextButton}
+                      style={currentStyles.nextButton}
                       disabled={!isStep1Valid}
                     >
                       Next →
                     </button>
                   </div>
-                  {!isStep1Valid && <p style={styles.validationText}>Destination is required.</p>}
+                  {!isStep1Valid && <p style={{ color: '#dc3545' }}>Destination is required.</p>}
 
-                  <div style={styles.popularDestinations}>
-                    <p style={styles.popularLabel}>Popular choices:</p>
-                    <div style={styles.destinationTags}>
-                      {['Paris', 'Tokyo', 'New York', 'Bali', 'Rome'].map(city => (
+                  <div style={currentStyles.popularDestinations}>
+                    <p style={currentStyles.popularLabel}>Popular choices:</p>
+                    <div style={currentStyles.destinationTags}>
+                      {['Paris', 'Tokyo', 'New York', 'Bali', 'Rome', 'Dubai', 'Istanbul', 'Barcelona', 'Bangkok', 'Amsterdam'].map(city => (
                         <span 
                           key={city}
-                          style={styles.destinationTag}
+                          style={currentStyles.destinationTag}
                           onClick={() => {
                             setDestination(city);
                             nextStep();
@@ -128,15 +285,31 @@ function ItineraryForm() {
                       ))}
                     </div>
                   </div>
+
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      const cities = ['Paris', 'Tokyo', 'New York', 'Bali', 'Rome'];
+                      const themes = ['Adventure', 'Relaxation', 'Culture', 'Food tour', 'Romantic'];
+                      setDestination(cities[Math.floor(Math.random() * cities.length)]);
+                      setTheme(themes[Math.floor(Math.random() * themes.length)]);
+                      setDays(Math.floor(Math.random() * 10) + 3);
+                      setPace(['relaxed', 'moderate', 'fast'][Math.floor(Math.random() * 3)]);
+                      setActiveStep(3); // Skip to preferences
+                    }}
+                    style={{ ...currentStyles.nextButton, marginTop: '1rem', backgroundColor: '#3a0ca3' }}
+                  >
+                    🎲 I'm Feeling Lucky
+                  </button>
                 </div>
               )}
 
               {/* Step 2: Details */}
               {activeStep === 2 && (
-                <div style={styles.stepContent}>
-                  <h2 style={styles.stepTitle}>Trip Details</h2>
-                  <div style={styles.daysSelector}>
-                    <label style={styles.daysLabel}>How many days?</label>
+                <div style={currentStyles.stepContent}>
+                  <h2 style={currentStyles.stepTitle}>Trip Details</h2>
+                  <div style={currentStyles.daysSelector}>
+                    <label style={currentStyles.daysLabel}>How many days?</label>
                     <input
                       type="number"
                       min={1}
@@ -144,34 +317,49 @@ function ItineraryForm() {
                       required
                       value={days}
                       onChange={(e) => setDays(Number(e.target.value))}
-                      style={styles.input}
+                      style={currentStyles.input}
                       placeholder="Enter number of days"
                     />
                   </div>
-                  <div style={styles.themeInput}>
-                    <label style={styles.themeLabel}>What's your travel theme?</label>
+                  <div style={currentStyles.themeInput}>
+                    <label style={currentStyles.themeLabel}>What's your travel theme?</label>
                     <input
                       type="text"
                       value={theme}
                       onChange={(e) => setTheme(e.target.value)}
                       placeholder="e.g., Food tour, Adventure, Relaxation..."
-                      style={styles.input}
+                      maxLength={50}
+                      style={currentStyles.input}
                     />
+                    <p style={{ fontSize: '0.85rem', color: '#6c757d', marginTop: '0.5rem' }}>
+                      {theme.length}/50 characters
+                    </p>
+                    <div style={currentStyles.destinationTags}>
+                      {['Adventure', 'Relaxation', 'Culture', 'Food tour', 'Romantic'].map(suggestion => (
+                        <span
+                          key={suggestion}
+                          style={currentStyles.destinationTag}
+                          onClick={() => setTheme(suggestion)}
+                        >
+                          {suggestion}
+                        </span>
+                      ))}
+                    </div>
                   </div>
-                  {!isStep2Valid && <p style={styles.validationText}>Days and theme are required.</p>}
+                  {!isStep2Valid && <p style={{ color: '#dc3545' }}>Days and theme are required.</p>}
 
-                  <div style={styles.navigationButtons}>
+                  <div style={currentStyles.navigationButtons}>
                     <button 
                       type="button" 
                       onClick={prevStep}
-                      style={styles.backButton}
+                      style={currentStyles.backButton}
                     >
                       ← Back
                     </button>
                     <button 
                       type="button" 
                       onClick={() => isStep2Valid && nextStep()}
-                      style={styles.nextButton}
+                      style={currentStyles.nextButton}
                       disabled={!isStep2Valid}
                     >
                       Next →
@@ -182,24 +370,24 @@ function ItineraryForm() {
 
               {/* Step 3: Preferences */}
               {activeStep === 3 && (
-                <div style={styles.stepContent}>
-                  <h2 style={styles.stepTitle}>Your Travel Style</h2>
-                  <div style={styles.paceSelector}>
-                    <label style={styles.paceLabel}>Preferred pace:</label>
-                    <div style={styles.paceCards}>
+                <div style={currentStyles.stepContent}>
+                  <h2 style={currentStyles.stepTitle}>Your Travel Style</h2>
+                  <div style={currentStyles.paceSelector}>
+                    <label style={currentStyles.paceLabel}>Preferred pace:</label>
+                    <div style={currentStyles.paceCards}>
                       {['relaxed', 'moderate', 'fast'].map((type) => (
                         <div 
                           key={type}
-                          style={pace === type ? styles.paceCardActive : styles.paceCard}
+                          style={pace === type ? currentStyles.paceCardActive : currentStyles.paceCard}
                           onClick={() => setPace(type)}
                         >
-                          <div style={styles.paceIcon}>
+                          <div style={currentStyles.paceIcon}>
                             {type === 'relaxed' ? '🌴' : type === 'moderate' ? '🚶‍♂️' : '🏃‍♂️'}
                           </div>
-                          <h3 style={styles.paceTitle}>
+                          <h3 style={currentStyles.paceTitle}>
                             {type === 'relaxed' ? 'Relaxed' : type === 'moderate' ? 'Balanced' : 'Fast-Paced'}
                           </h3>
-                          <p style={styles.paceDesc}>
+                          <p style={currentStyles.paceDesc}>
                             {type === 'relaxed' ? 'Plenty of downtime' : type === 'moderate' ? 'Mix of activities & rest' : 'Maximum experiences'}
                           </p>
                         </div>
@@ -209,7 +397,7 @@ function ItineraryForm() {
                   <button 
                     type="submit" 
                     disabled={loading}
-                    style={loading ? styles.submitButtonLoading : styles.submitButton}
+                    style={loading ? currentStyles.submitButtonLoading : currentStyles.submitButton}
                   >
                     {loading ? 'Crafting Your Journey...' : 'Generate My Itinerary ✨'}
                   </button>
@@ -218,30 +406,32 @@ function ItineraryForm() {
             </form>
           </div>
         ) : (
-          <div style={styles.resultsContainer}>
-            <div style={styles.resultsHeader}>
-              <h2 style={styles.resultsTitle}>Your {days}-Day {destination} Itinerary</h2>
-              <div style={styles.resultsSubtitle}>{theme} • {pace} pace</div>
-            </div>
-            <div style={styles.itinerary}>
-              {itinerary.split('\n').map((line, index) => (
-                <div key={index} style={styles.itineraryItem}>
-                  {line.startsWith('Day') ? (
-                    <div style={styles.dayHeader}>
-                      <div style={styles.dayMarker}>📌</div>
-                      <h3 style={styles.dayTitle}>{line}</h3>
-                    </div>
-                  ) : (
-                    <div style={styles.activity}>
-                      <div style={styles.timeBullet}>📍</div>
-                      <div style={styles.activityText}>{line}</div>
-                    </div>
-                  )}
-                </div>
-              ))}
+          <div style={currentStyles.resultsContainer}>
+            <div ref={itineraryRef}>
+              <div className="results-header">
+                <h2 className="results-title" style={currentStyles.resultsTitle}>Your {days}-Day {destination} Itinerary</h2>
+                <div className="results-subtitle" style={currentStyles.resultsSubtitle}>{theme} • {pace} pace</div>
+              </div>
+              <div className="itinerary" style={currentStyles.itinerary}>
+                {itinerary.split('\n').map((line, index) => (
+                  <div key={index} className="itinerary-item" style={currentStyles.itineraryItem}>
+                    {line.startsWith('Day') ? (
+                      <div className="day-header" style={currentStyles.dayHeader}>
+                        <div style={currentStyles.dayMarker}>📌</div>
+                        <h3 style={currentStyles.dayTitle}>{line}</h3>
+                      </div>
+                    ) : (
+                      <div className="activity" style={currentStyles.activity}>
+                        <div style={currentStyles.timeBullet}>📍</div>
+                        <div style={currentStyles.activityText}>{line}</div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
             <button 
-              style={styles.newItineraryButton}
+              style={currentStyles.newItineraryButton}
               onClick={() => {
                 setItinerary('');
                 setActiveStep(1);
@@ -249,19 +439,47 @@ function ItineraryForm() {
             >
               Plan Another Trip
             </button>
+            <button
+              style={{ ...currentStyles.newItineraryButton, borderColor: '#dc3545', color: '#dc3545' }}
+              onClick={() => {
+                setItinerary('');
+                setDestination('');
+                setDays(3);
+                setTheme('');
+                setPace('moderate');
+                setActiveStep(1);
+              }}
+            >
+              🗑️ Clear & Start Over
+            </button>
+            <button
+              style={{ ...currentStyles.newItineraryButton, borderColor: '#198754', color: '#198754' }}
+              onClick={handleShare}
+            >
+              📋 Share Itinerary
+            </button>
+            <button
+              style={{ ...currentStyles.newItineraryButton, borderColor: '#0d6efd', color: '#0d6efd' }}
+              onClick={handlePrintPDF}
+            >
+              🖨️ Save as PDF
+            </button>
+            {shareMsg && (
+              <div style={{ marginTop: '1rem', color: '#198754', textAlign: 'center', fontWeight: 600 }}>
+                {shareMsg}
+              </div>
+            )}
           </div>
         )}
         {error && (
-          <div style={styles.error}>
-            <span style={styles.errorIcon}>⚠️</span> {error}
+          <div style={currentStyles.error}>
+            <span style={currentStyles.errorIcon}>⚠️</span> {error}
           </div>
         )}
       </div>
     </div>
   );
 }
-
-
 
 // Modern, magazine-style layout with stepped approach
 const styles = {
@@ -630,6 +848,21 @@ const styles = {
   errorIcon: {
     fontSize: '1.2rem',
   },
+  darkContainer: {
+    backgroundColor: '#121212',
+    color: '#f1f1f1',
+  },
+  themeToggleButton: {
+    marginTop: '1rem',
+    backgroundColor: '#3a0ca3',
+    color: 'white',
+    border: 'none',
+    padding: '0.5rem 1rem',
+    borderRadius: '8px',
+    cursor: 'pointer',
+    fontSize: '0.9rem',
+  },
+
 };
 
 export default ItineraryForm;

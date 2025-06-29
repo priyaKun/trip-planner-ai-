@@ -27,10 +27,15 @@ public class OpenAIService {
         String theme = request.getTheme();
         String pace = request.getPace();
 
-        String prompt = "Plan a " + days + "-day trip to " + destination +
-                " with daily activities and descriptions." +
-                (theme != null && !theme.isEmpty() ? " Focus on " + theme + " experiences." : "") +
-                (pace != null && !pace.isEmpty() ? " The trip pace should be " + pace + "." : "");
+        String prompt = "Plan a " + days + "-day trip to " + destination + ". " +
+                "The theme is '" + theme + "' and the pace is '" + pace + "'. " +
+                "Return the response ONLY as plain text (no JSON, no markdown, no code blocks). " +
+                "Do NOT use any backticks, symbols, or formatting. " +
+                "Label each day like 'Day 1:', then list activities for morning, lunch, afternoon, and evening. " +
+                "Separate each part clearly in plain text. " +
+                "At the end, include a plain text list of travel tips. Do not include any markdown or explanations.";
+
+
 
         // Prepare the OpenAI message payload
         Map<String, Object> message = new HashMap<>();
@@ -38,7 +43,7 @@ public class OpenAIService {
         message.put("content", prompt);
 
         Map<String, Object> body = new HashMap<>();
-        body.put("model", "gpt-3.5-turbo");
+        body.put("model", "qwen/qwen3-14b:free");
         body.put("messages", List.of(message));
         body.put("temperature", 0.7);
 
@@ -58,6 +63,7 @@ public class OpenAIService {
         // Send request and return response
         String response = client.execute(httpPost, httpResponse ->
                 new String(httpResponse.getEntity().getContent().readAllBytes()));
+        System.out.println("🔍 OpenRouter Raw Response: " + response);
 
         client.close();
 
@@ -66,9 +72,15 @@ public class OpenAIService {
 
         if (choices != null && !choices.isEmpty()) {
             Map<String, Object> messageMap = (Map<String, Object>) choices.get(0).get("message");
-            return (String) messageMap.get("content");
-        } else {
-            return "No itinerary found.";
+            String content = (String) messageMap.get("content");
+
+            // 🔧 Remove markdown/code block formatting
+            content = content.replaceAll("(?s)```.*?```", ""); // Remove code blocks
+            content = content.replaceAll("```", "");           // Remove stray backticks
+
+            return content.trim(); // ✅ Clean and ready for frontend
         }
+
+        return destination;
     }
 }
