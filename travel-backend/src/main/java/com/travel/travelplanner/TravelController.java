@@ -21,7 +21,6 @@ public class TravelController {
 //        String destination = request.getDestination();
 //        int days = request.getDays();
 //
-//        // We'll replace this with OpenAI later
 //        return "Planning a " + days + "-day trip to " + destination + "!";
     }
 }
